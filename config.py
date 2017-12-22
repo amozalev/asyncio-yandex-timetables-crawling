@@ -1,8 +1,20 @@
 import os
 
 API_KEY = os.getenv('YANDEX_TIMETABLES_API_KEY')
+BASE_URL = 'https://api.rasp.yandex.net/v1.0/schedule/'
+EVENTS = ['departure', 'arrival']
+
+PARAMS = {'apikey': API_KEY,
+          'format': 'json',
+          'lang': 'ru',
+          'direction': 'all',
+          'show_systems': 'all',
+          'page': 1
+          }
+
 DATE_START = "2017-12-30"
 DATE_END = "2017-12-31"
+
 # Для удобства восприятия станции представлены в виде словаря, где задействованным элементом являются значения
 STATIONS = {
     'Москва (Домодедово)': 's9600216',
@@ -54,3 +66,8 @@ STATIONS = {
     'Екатеринбург Шарташ': 's9607458',
     'Рузаевка': 's9606314'
 }
+
+DB_USER = 'postgres'
+DB_PASS = '0000'
+DB_NAME = 'YANDEX_TIMETABLES'
+DB_HOST = '127.0.0.1'

@@ -70,24 +70,13 @@ async def start_crawling(session, loop, base_url, params_list):
 
 
 def main():
-    base_url = 'https://api.rasp.yandex.net/v1.0/schedule/'
-    events = ['departure', 'arrival']
-
-    params = {'apikey': config.API_KEY,
-              'format': 'json',
-              'lang': 'ru',
-              'direction': 'all',
-              'show_systems': 'all',
-              'page': 1
-              }
-
     dates = get_dates_range(config.DATE_START, config.DATE_END)
 
     params_list = []
     for station in config.STATIONS.values():
         for date in dates:
-            for event in events:
-                params_copy = params.copy()
+            for event in config.EVENTS:
+                params_copy = config.PARAMS.copy()
                 params_copy.update(station=station, date=date, event=event)
                 params_list.append(params_copy)
 
@@ -99,7 +88,7 @@ def main():
     loop = asyncio.get_event_loop()
     with aiohttp.ClientSession(loop=loop, connector=conn) as session:
         # loop.run_until_complete(start_crawling(session, loop, base_url, params_list))
-        tasks = [asyncio.ensure_future(start_crawling(session, loop, base_url, i)) for i in params_list]
+        tasks = [asyncio.ensure_future(start_crawling(session, loop, config.BASE_URL, i)) for i in params_list]
         tasks_results = loop.run_until_complete(asyncio.gather(*tasks))
     loop.close()
 
