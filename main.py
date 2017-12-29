@@ -1,9 +1,9 @@
 import datetime
 import asyncio
-import socket
 import aiohttp
+import socket
 import config
-import models
+# import models
 
 
 def print_stations(tasks_results: list):
@@ -73,6 +73,10 @@ async def start_crawling(session, loop, base_url, params_list):
 def main():
     dates = get_dates_range(config.DATE_START, config.DATE_END)
 
+    if config.API_KEY is None:
+        print('Не задан API_KEY Яндекс Расписанй')
+        return
+
     params_list = []
     for station in config.STATIONS.values():
         for date in dates:
@@ -90,11 +94,11 @@ def main():
     with aiohttp.ClientSession(loop=loop, connector=conn) as session:
         # loop.run_until_complete(start_crawling(session, loop, base_url, params_list))
         tasks = [asyncio.ensure_future(start_crawling(session, loop, config.BASE_URL, i)) for i in params_list]
-        # tasks_results = loop.run_until_complete(asyncio.gather(*tasks))
-        loop.run_until_complete(models.go())
+        tasks_results = loop.run_until_complete(asyncio.gather(*tasks))
+        # loop.run_until_complete(models.go())
     loop.close()
 
-    # print_stations(tasks_results)
+    print_stations(tasks_results)
 
 
 if __name__ == '__main__':
