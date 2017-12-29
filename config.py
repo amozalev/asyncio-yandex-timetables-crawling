@@ -68,6 +68,6 @@ STATIONS = {
 }
 
 DB_USER = 'postgres'
-DB_PASS = '0000'
+DB_PASS = 'somePass9'
 DB_NAME = 'Yandex_schedule'
 DB_HOST = '127.0.0.1'

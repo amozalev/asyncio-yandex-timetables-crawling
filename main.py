@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 import socket
 import config
-# import models
+import models
 
 
 def print_stations(tasks_results: list):
@@ -93,12 +93,13 @@ def main():
     loop = asyncio.get_event_loop()
     with aiohttp.ClientSession(loop=loop, connector=conn) as session:
         # loop.run_until_complete(start_crawling(session, loop, base_url, params_list))
-        tasks = [asyncio.ensure_future(start_crawling(session, loop, config.BASE_URL, i)) for i in params_list]
-        tasks_results = loop.run_until_complete(asyncio.gather(*tasks))
-        # loop.run_until_complete(models.go())
+
+        # tasks = [asyncio.ensure_future(start_crawling(session, loop, config.BASE_URL, i)) for i in params_list]
+        # tasks_results = loop.run_until_complete(asyncio.gather(*tasks))
+        loop.run_until_complete(models.go())
     loop.close()
 
-    print_stations(tasks_results)
+    # print_stations(tasks_results)
 
 
 if __name__ == '__main__':
