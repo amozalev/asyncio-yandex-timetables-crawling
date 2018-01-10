@@ -2,11 +2,11 @@ import datetime
 import asyncio
 import aiohttp
 import socket
-import config
+# import config
 from models import *
 from typing import Dict
 # from sqlalchemy.sql import select
-import sqlalchemy as sa
+# import sqlalchemy as sa
 import psycopg2
 
 
@@ -31,36 +31,57 @@ def get_dates_range(date_start: str, date_end: str) -> list:
     return dates
 
 
-async def get_station_type_id(conn, title):
-    async with conn.cursor() as cur:
-        await cur.execute("SELECT id FROM station_type WHERE title=%s", (title,))
-        res = await cur.fetchone()
-        station_type_id = None
-        if res:
-            station_type_id = res[0]
-    return station_type_id
+# async def get_station_type_id(conn, title):
+#     async with conn.cursor() as cur:
+#         await cur.execute("SELECT id FROM station_type WHERE title=%s", (title,))
+#         res = await cur.fetchone()
+#         station_type_id = None
+#         if res:
+#             station_type_id = res[0]
+#     return station_type_id
+#
+#
+# async def get_transport_type_id(conn, title):
+#     async with conn.cursor() as cur:
+#         await cur.execute("SELECT id FROM transport_type WHERE title=%s", (title,))
+#         # await cur.execute(sa.select([transport_type.c.id]).select_from(transport_type).where(transport_type.c.title == title))
+#         res = await cur.fetchone()
+#         transport_type_id = None
+#         if res:
+#             transport_type_id = res[0]
+#     return transport_type_id
+#
+#
+# async def get_carrier_id(conn, title):
+#     async with conn.cursor() as cur:
+#         await cur.execute("SELECT id FROM carrier WHERE title=%s", (title,))
+#         res = await cur.fetchone()
+#         carrier_id = None
+#         if res:
+#             carrier_id = res[0]
+#     return carrier_id
+#
+#
+# async def get_station_id(conn, code):
+#     async with conn.cursor() as cur:
+#         await cur.execute("SELECT id FROM station WHERE code=%s", (code,))
+#         # await cur.execute(sa.select([station.c.id]).select_from(station).where(station.c.code == code))
+#         res = await cur.fetchone()
+#         station_id = None
+#         if res:
+#             station_id = res[0]
+#     return station_id
 
 
-async def get_transport_type_id(conn, title):
+async def get_id(conn, model: str, param_name: str, param_value: str):
     async with conn.cursor() as cur:
-        await cur.execute("SELECT id FROM transport_type WHERE title=%s", (title,))
+        await cur.execute(f"SELECT id FROM {model} WHERE {param_name}='{param_value}'")
         # await cur.execute(sa.select([transport_type.c.id]).select_from(transport_type).where(transport_type.c.title == title))
-        res = await cur.fetchone()
-        transport_type_id = None
-        if res:
-            transport_type_id = res[0]
-    return transport_type_id
-
-
-async def get_station_id(conn, code):
-    async with conn.cursor() as cur:
-        await cur.execute("SELECT id FROM station WHERE code=%s", (code,))
-        # await cur.execute(sa.select([station.c.id]).select_from(station).where(station.c.code == code))
-        res = await cur.fetchone()
-        station_id = None
-        if res:
-            station_id = res[0]
-    return station_id
+        result = await cur.fetchone()
+        id = None
+        if result:
+            id = result[0]
+    return id
 
 
 async def insert_station_type(conn, title):
@@ -95,6 +116,33 @@ async def insert_station(conn, station_code, station_title, station_type_id, tra
             print('psycopg2.Error:', e)
 
 
+async def insert_carrier(conn, code, iata, title):
+    async with conn.cursor() as cur:
+        try:
+            await cur.execute('INSERT INTO carrier(code, iata, title) VALUES(%s, %s, %s)', (code, iata, title))
+        except psycopg2.Error as e:
+            print('psycopg2.Error:', e)
+
+
+async def insert_vehicle(conn, title):
+    async with conn.cursor() as cur:
+        try:
+            await cur.execute('INSERT INTO vehicle(title) VALUES(%s)', (title,))
+        except psycopg2.Error as e:
+            print('psycopg2.Error:', e)
+
+
+async def insert_transport_thread(conn, number: str, title: str, uid: str, carrier_id: int, transport_type_id: int,
+                                  vehicle_id: int):
+    async with conn.cursor() as cur:
+        try:
+            await cur.execute('''INSERT INTO transport_thread(number, title, uid, carrier_id, transport_type_id, vehicle_id)
+                                VALUES('{0}', '{1}', '{2}', {3}, {4}, {5})'''.
+                              format(number, title, uid, carrier_id, transport_type_id, vehicle_id))
+        except psycopg2.Error as e:
+            print('psycopg2.Error:', e)
+
+
 async def parse_data(pool, json_response: Dict):
     station_type = json_response['station']['station_type']
     transport_type = json_response['station']['transport_type']
@@ -106,17 +154,53 @@ async def parse_data(pool, json_response: Dict):
             # async for row in cur:
             #     print('---------', row)
 
-            station_id = await get_station_id(conn, station_code)
+            # ----------------------- Station ----------------------------------------------------------------
+            transport_type_id = None
+            station_id = await get_id(conn, 'station', 'title', station_code)
             if not station_id:
-                station_type_id = await get_station_type_id(conn, station_type)
+                station_type_id = await get_id(conn, 'station_type', 'title', station_type)
                 if not station_type_id:
                     await insert_station_type(conn, station_type)
-                    station_type_id = await get_station_type_id(conn, station_type)
-                transport_type_id = await get_transport_type_id(conn, transport_type)
+                    station_type_id = await get_id(conn, 'station_type', 'title', station_type)
+                transport_type_id = await get_id(conn, 'transport_type', 'title', transport_type)
                 if not transport_type_id:
                     await insert_transport_type(conn, transport_type)
-                    transport_type_id = await get_transport_type_id(conn, transport_type)
+                    transport_type_id = await get_id(conn, 'transport_type', 'title', transport_type)
                 await insert_station(conn, station_code, station_title, station_type_id, transport_type_id)
+
+            carrier_code = ''
+            iata = ''
+            vehicle_title = None
+            for i in json_response['schedule']:
+
+                # ----------------------- Carrier ----------------------------------------------------------------
+                if 'code' in i['thread']['carrier']:
+                    carrier_code = i['thread']['carrier']['code']
+                if 'codes' in i['thread']['carrier']:
+                    if 'iata' in i['thread']['carrier']['codes']:
+                        iata = i['thread']['carrier']['codes']['iata']
+                carrier_title = i['thread']['carrier']['title']
+                carrier_id = await get_id(conn, 'carrier', 'title', carrier_title)
+                if not carrier_id:
+                    await insert_carrier(conn, carrier_code, iata, carrier_title)
+
+                # ----------------------- Vehicle ----------------------------------------------------------------
+                vehicle_title = 'Поезд'
+                if 'vehicle' in i['thread']:
+                    if i['thread']['vehicle'] is not None:
+                        vehicle_title = i['thread']['vehicle']
+                vehicle_id = await get_id(conn, 'vehicle', 'title', vehicle_title)
+                if not vehicle_id and vehicle_title:
+                    await insert_vehicle(conn, vehicle_title)
+                    vehicle_id = await get_id(conn, 'vehicle', 'title', vehicle_title)
+
+                # ----------------------- Transport_thread --------------------------------------------------------
+                thread_number = i['thread']['number']
+                thread_title = i['thread']['title']
+                uid = i['thread']['uid']
+                carrier_id = await get_id(conn, 'carrier', 'title', carrier_title)
+                await insert_transport_thread(conn, thread_number, thread_title, uid, carrier_id, transport_type_id,
+                                              vehicle_id)
 
 
 async def fetch(session, loop, base_url, params, pool, page=1):

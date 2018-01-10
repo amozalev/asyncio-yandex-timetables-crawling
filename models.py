@@ -28,7 +28,7 @@ carrier = sa.Table('carrier', metadata,
 
 vehicle = sa.Table('vehicle', metadata,
                    sa.Column('id', sa.Integer, primary_key=True),
-                   sa.Column('name', sa.Text))
+                   sa.Column('title', sa.Text))
 
 transport_thread = sa.Table('transport_thread', metadata,
                             sa.Column('id', sa.Integer, primary_key=True),
@@ -86,7 +86,7 @@ async def create_all():
 
         await cur.execute('''CREATE TABLE vehicle(
                                                   id SERIAL PRIMARY KEY,
-                                                  name TEXT)''')
+                                                  title TEXT)''')
 
         await cur.execute('''CREATE TABLE transport_thread(
                                                           id SERIAL PRIMARY KEY,
