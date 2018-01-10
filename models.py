@@ -1,6 +1,6 @@
-from aiopg.sa import create_engine
+from aiopg import create_pool
 import sqlalchemy as sa
-from sqlalchemy.schema import CreateTable, DropTable, CreateSequence, DropSequence
+# from sqlalchemy.schema import CreateTable, DropTable, CreateSequence, DropSequence
 import config
 
 metadata = sa.MetaData()
@@ -41,38 +41,70 @@ transport_thread = sa.Table('transport_thread', metadata,
 
 thread = sa.Table('thread', metadata,
                   sa.Column('id', sa.Integer, primary_key=True),
-                  sa.Column('departure', sa.DateTime),
+                  sa.Column('departure_date', sa.DateTime),
                   sa.Column('departure_terminal', sa.Text),
-                  sa.Column('arrival', sa.DateTime),
+                  sa.Column('arrival_date', sa.DateTime),
                   sa.Column('arrival_terminal', sa.Text),
                   sa.Column('from_station_id', sa.Integer, sa.ForeignKey('station.id')),
                   sa.Column('days', sa.Text),
                   sa.Column('departuremonthday', sa.Text))
 
 
-async def create_all(conn):
-    await conn.execute('DROP TABLE IF EXISTS station_type CASCADE')
-    await conn.execute('DROP TABLE IF EXISTS transport_type CASCADE')
-    await conn.execute('DROP TABLE IF EXISTS station CASCADE')
-    await conn.execute('DROP TABLE IF EXISTS carrier CASCADE')
-    await conn.execute('DROP TABLE IF EXISTS vehicle CASCADE')
-    await conn.execute('DROP TABLE IF EXISTS transport_thread CASCADE')
-    await conn.execute('DROP TABLE IF EXISTS thread CASCADE')
+async def create_all():
+    dsn = f'dbname={config.DB_NAME} user={config.DB_USER} password={config.DB_PASS} host={config.DB_HOST} port=5432'
+    pool = await create_pool(dsn)
 
-    await conn.execute(CreateTable(station_type))
-    await conn.execute(CreateTable(transport_type))
-    await conn.execute(CreateTable(station))
-    await conn.execute(CreateTable(carrier))
-    await conn.execute(CreateTable(vehicle))
-    await conn.execute(CreateTable(transport_thread))
-    await conn.execute(CreateTable(thread))
+    with (await pool.cursor()) as cur:
+        await cur.execute('DROP TABLE IF EXISTS station_type CASCADE')
+        await cur.execute('DROP TABLE IF EXISTS transport_type CASCADE')
+        await cur.execute('DROP TABLE IF EXISTS station CASCADE')
+        await cur.execute('DROP TABLE IF EXISTS carrier CASCADE')
+        await cur.execute('DROP TABLE IF EXISTS vehicle CASCADE')
+        await cur.execute('DROP TABLE IF EXISTS transport_thread CASCADE')
+        await cur.execute('DROP TABLE IF EXISTS thread CASCADE')
 
+        await cur.execute('''CREATE TABLE station_type(
+                                                      id SERIAL PRIMARY KEY, 
+                                                      title TEXT)''')
 
-async def go():
-    engine = await create_engine(user=config.DB_USER,
-                                 database=config.DB_NAME,
-                                 host=config.DB_HOST,
-                                 password=config.DB_PASS)
-    async with engine:
-        async with engine.acquire() as conn:
-            await create_all(conn)
+        await cur.execute('''CREATE TABLE transport_type(
+                                                        id SERIAL PRIMARY KEY,
+                                                        title TEXT)''')
+
+        await cur.execute('''CREATE TABLE station(
+                                                  id SERIAL PRIMARY KEY, 
+                                                  code TEXT, 
+                                                  title TEXT, 
+                                                  station_type_id INT REFERENCES station_type(id),
+                                                  transport_type_id INT REFERENCES transport_type(id))''')
+
+        await cur.execute('''CREATE TABLE carrier(
+                                                  id SERIAL PRIMARY KEY,
+                                                  code TEXT,
+                                                  iata TEXT,
+                                                  title TEXT)''')
+
+        await cur.execute('''CREATE TABLE vehicle(
+                                                  id SERIAL PRIMARY KEY,
+                                                  name TEXT)''')
+
+        await cur.execute('''CREATE TABLE transport_thread(
+                                                          id SERIAL PRIMARY KEY,
+                                                          number TEXT,
+                                                          title TEXT,
+                                                          uid TEXT,
+                                                          carrier_id INT REFERENCES carrier(id),
+                                                          transport_type_id INT REFERENCES transport_type(id),
+                                                          vehicle_id INT REFERENCES vehicle(id))''')
+
+        await cur.execute('''CREATE TABLE thread(
+                                                id SERIAL PRIMARY KEY,
+                                                departure_date TIMESTAMP WITHOUT TIME ZONE,
+                                                departure_terminal TEXT,
+                                                arrivel_date TIMESTAMP WITHOUT TIME ZONE,
+                                                arrivel_terminal TEXT,
+                                                from_station_id INT REFERENCES station(id),
+                                                days TEXT,
+                                                departuremonthday TEXT)''')
+
+    return pool
