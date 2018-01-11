@@ -50,9 +50,6 @@ thread = sa.Table('thread', metadata,
                   sa.Column('days', sa.Text))
 
 
-# sa.Column('departuremonthday', sa.Text))
-
-
 async def create_all():
     dsn = f'dbname={config.DB_NAME} user={config.DB_USER} password={config.DB_PASS} host={config.DB_HOST} port=5432'
     pool = await create_pool(dsn)
@@ -68,28 +65,33 @@ async def create_all():
 
         await cur.execute('''CREATE TABLE station_type(
                                                       id SERIAL PRIMARY KEY, 
-                                                      title TEXT)''')
+                                                      title TEXT,
+                                                      UNIQUE (title))''')
 
         await cur.execute('''CREATE TABLE transport_type(
                                                         id SERIAL PRIMARY KEY,
-                                                        title TEXT)''')
+                                                        title TEXT,
+                                                        UNIQUE (title))''')
 
         await cur.execute('''CREATE TABLE station(
                                                   id SERIAL PRIMARY KEY, 
                                                   code TEXT, 
                                                   title TEXT, 
                                                   station_type_id INT REFERENCES station_type(id),
-                                                  transport_type_id INT REFERENCES transport_type(id))''')
+                                                  transport_type_id INT REFERENCES transport_type(id),
+                                                  UNIQUE (code))''')
 
         await cur.execute('''CREATE TABLE carrier(
                                                   id SERIAL PRIMARY KEY,
                                                   code TEXT,
                                                   iata TEXT,
-                                                  title TEXT)''')
+                                                  title TEXT,
+                                                  UNIQUE (code))''')
 
         await cur.execute('''CREATE TABLE vehicle(
                                                   id SERIAL PRIMARY KEY,
-                                                  title TEXT)''')
+                                                  title TEXT,
+                                                  UNIQUE (title))''')
 
         await cur.execute('''CREATE TABLE transport_thread(
                                                           id SERIAL PRIMARY KEY,
@@ -98,7 +100,8 @@ async def create_all():
                                                           uid TEXT,
                                                           carrier_id INT REFERENCES carrier(id),
                                                           transport_type_id INT REFERENCES transport_type(id),
-                                                          vehicle_id INT REFERENCES vehicle(id))''')
+                                                          vehicle_id INT REFERENCES vehicle(id),
+                                                          UNIQUE (number))''')
 
         await cur.execute('''CREATE TABLE thread(
                                                 id SERIAL PRIMARY KEY,
