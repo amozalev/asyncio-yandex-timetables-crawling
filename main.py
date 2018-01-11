@@ -2,12 +2,12 @@ import datetime
 import asyncio
 import aiohttp
 import socket
-# import config
 from models import *
 from typing import Dict
 # from sqlalchemy.sql import select
 # import sqlalchemy as sa
 import psycopg2
+from psycopg2.sql import SQL, Identifier
 
 
 def print_stations(tasks_results: list):
@@ -31,51 +31,10 @@ def get_dates_range(date_start: str, date_end: str) -> list:
     return dates
 
 
-# async def get_station_type_id(conn, title):
-#     async with conn.cursor() as cur:
-#         await cur.execute("SELECT id FROM station_type WHERE title=%s", (title,))
-#         res = await cur.fetchone()
-#         station_type_id = None
-#         if res:
-#             station_type_id = res[0]
-#     return station_type_id
-#
-#
-# async def get_transport_type_id(conn, title):
-#     async with conn.cursor() as cur:
-#         await cur.execute("SELECT id FROM transport_type WHERE title=%s", (title,))
-#         # await cur.execute(sa.select([transport_type.c.id]).select_from(transport_type).where(transport_type.c.title == title))
-#         res = await cur.fetchone()
-#         transport_type_id = None
-#         if res:
-#             transport_type_id = res[0]
-#     return transport_type_id
-#
-#
-# async def get_carrier_id(conn, title):
-#     async with conn.cursor() as cur:
-#         await cur.execute("SELECT id FROM carrier WHERE title=%s", (title,))
-#         res = await cur.fetchone()
-#         carrier_id = None
-#         if res:
-#             carrier_id = res[0]
-#     return carrier_id
-#
-#
-# async def get_station_id(conn, code):
-#     async with conn.cursor() as cur:
-#         await cur.execute("SELECT id FROM station WHERE code=%s", (code,))
-#         # await cur.execute(sa.select([station.c.id]).select_from(station).where(station.c.code == code))
-#         res = await cur.fetchone()
-#         station_id = None
-#         if res:
-#             station_id = res[0]
-#     return station_id
-
-
 async def get_id(conn, model: str, param_name: str, param_value: str):
     async with conn.cursor() as cur:
-        await cur.execute(f"SELECT id FROM {model} WHERE {param_name}='{param_value}'")
+        await cur.execute(SQL("SELECT id FROM {} WHERE {}=%s").format(Identifier(model), Identifier(param_name)),
+                          (param_value,))
         # await cur.execute(sa.select([transport_type.c.id]).select_from(transport_type).where(transport_type.c.title == title))
         result = await cur.fetchone()
         id = None
@@ -137,8 +96,21 @@ async def insert_transport_thread(conn, number: str, title: str, uid: str, carri
     async with conn.cursor() as cur:
         try:
             await cur.execute('''INSERT INTO transport_thread(number, title, uid, carrier_id, transport_type_id, vehicle_id)
-                                VALUES('{0}', '{1}', '{2}', {3}, {4}, {5})'''.
-                              format(number, title, uid, carrier_id, transport_type_id, vehicle_id))
+                                VALUES(%s, %s, %s, %s, %s, %s)''',
+                              (number, title, uid, carrier_id, transport_type_id, vehicle_id))
+        except psycopg2.Error as e:
+            print('psycopg2.Error:', e)
+
+
+async def insert_thread(conn, departure_date, departure_terminal, to_station_id, arrival_date, arrival_terminal,
+                        from_station_id, days):
+    async with conn.cursor() as cur:
+        try:
+            await cur.execute('''INSERT INTO thread(departure_date, departure_terminal, to_station_id, arrival_date, arrival_terminal,
+                        from_station_id, days)
+                                VALUES(%s, %s, %s, %s, %s, %s, %s)''',
+                              (departure_date, departure_terminal, to_station_id, arrival_date, arrival_terminal,
+                               from_station_id, days))
         except psycopg2.Error as e:
             print('psycopg2.Error:', e)
 
@@ -151,8 +123,6 @@ async def parse_data(pool, json_response: Dict):
 
     async with pool.acquire() as conn:
         async with conn.cursor() as cur:
-            # async for row in cur:
-            #     print('---------', row)
 
             # ----------------------- Station ----------------------------------------------------------------
             transport_type_id = None
@@ -170,7 +140,6 @@ async def parse_data(pool, json_response: Dict):
 
             carrier_code = ''
             iata = ''
-            vehicle_title = None
             for i in json_response['schedule']:
 
                 # ----------------------- Carrier ----------------------------------------------------------------
@@ -202,23 +171,27 @@ async def parse_data(pool, json_response: Dict):
                 await insert_transport_thread(conn, thread_number, thread_title, uid, carrier_id, transport_type_id,
                                               vehicle_id)
 
+                # ----------------------- Thread --------------------------------------------------------
+                departure_date = i['departure']
+                departure_terminal = i['terminal']
+                arrival_date = i['arrival']
+                arrival_terminal = i['terminal']
+                days = i['days']
+                await insert_thread(conn, departure_date, departure_terminal, station_id, arrival_date,
+                                    arrival_terminal,
+                                    station_id, days)
 
-async def fetch(session, loop, base_url, params, pool, page=1):
-    params_copy = params.copy()
+
+async def fetch(session, base_url, params_list, pool, page=1):
+    params_copy = params_list.copy()
     params_copy.update(page=page)
-    # with aiohttp.Timeout(100):
     async with session.get(base_url, params=params_copy) as response:
         json_response = await response.json()
         await parse_data(pool, json_response)
-        # if json_response["pagination"]["has_next"]:
-        #     page_count = json_response["pagination"]["page_count"]
-        #     # await asyncio.wait(
-        #     #     [loop.create_task(fetch_first_page(session, loop, base_url, i)) for i in range(1, page_count + 1)])
-        #     await asyncio.gather(*[asyncio.Task(fetch(session, loop, base_url, i)) for i in params])
         return json_response
 
 
-async def start_crawling(session, loop, base_url, params_list, pool):
+async def start_crawling(session, base_url, params_list, pool):
     # # done, pending = await asyncio.wait(
     # #     [loop.create_task(fetch_first_page(session, loop, base_url, i)) for i in params_list],
     # #     return_when=asyncio.ALL_COMPLETED)
@@ -231,15 +204,17 @@ async def start_crawling(session, loop, base_url, params_list, pool):
     #     print('--', data['station']['title'], data['event'], 'page ', data['pagination']['page'])
     # return done
 
-    json_response = await fetch(session, loop, base_url, params_list, pool)
+    json_response = await fetch(session, base_url, params_list, pool)
     if 'error' in json_response:
         print(json_response['error']['text'], json_response['error']['request'])
 
     try:
         if json_response["pagination"]["has_next"]:
             page_count = json_response["pagination"]["page_count"]
+            #     # await asyncio.wait(
+            #     #     [loop.create_task(fetch_first_page(session, loop, base_url, i)) for i in range(1, page_count + 1)])
             json_response = await asyncio.gather(
-                *[asyncio.ensure_future(fetch(session, loop, base_url, params_list, pool, page)) for page in
+                *[asyncio.ensure_future(fetch(session, base_url, params_list, pool, page)) for page in
                   range(1, page_count + 1)])
 
     except KeyError:
@@ -247,7 +222,7 @@ async def start_crawling(session, loop, base_url, params_list, pool):
     return json_response
 
 
-async def main(loop):
+async def main():
     dates = get_dates_range(config.DATE_START, config.DATE_END)
 
     if config.API_KEY is None:
@@ -269,10 +244,10 @@ async def main(loop):
 
     pool = await create_all()
 
-    async with aiohttp.ClientSession(loop=loop, connector=connector) as session:
+    async with aiohttp.ClientSession(connector=connector) as session:
         # async with engine.acquire() as conn:
         tasks_results = await asyncio.gather(
-            *[asyncio.ensure_future(start_crawling(session, loop, config.BASE_URL, i, pool)) for i in
+            *[asyncio.ensure_future(start_crawling(session, config.BASE_URL, i, pool)) for i in
               params_list])
         # loop.run_until_complete(start_crawling(session, loop, base_url, params_list))
         # tasks_results = loop.run_until_complete(asyncio.gather(*tasks))
@@ -283,4 +258,5 @@ async def main(loop):
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(asyncio.ensure_future(main(loop)))
+    loop.run_until_complete(asyncio.ensure_future(main()))
+    loop.close()

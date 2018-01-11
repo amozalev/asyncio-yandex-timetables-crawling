@@ -43,11 +43,14 @@ thread = sa.Table('thread', metadata,
                   sa.Column('id', sa.Integer, primary_key=True),
                   sa.Column('departure_date', sa.DateTime),
                   sa.Column('departure_terminal', sa.Text),
+                  sa.Column('to_station_id', sa.Integer, sa.ForeignKey('station.id')),
                   sa.Column('arrival_date', sa.DateTime),
                   sa.Column('arrival_terminal', sa.Text),
                   sa.Column('from_station_id', sa.Integer, sa.ForeignKey('station.id')),
-                  sa.Column('days', sa.Text),
-                  sa.Column('departuremonthday', sa.Text))
+                  sa.Column('days', sa.Text))
+
+
+# sa.Column('departuremonthday', sa.Text))
 
 
 async def create_all():
@@ -101,10 +104,10 @@ async def create_all():
                                                 id SERIAL PRIMARY KEY,
                                                 departure_date TIMESTAMP WITHOUT TIME ZONE,
                                                 departure_terminal TEXT,
-                                                arrivel_date TIMESTAMP WITHOUT TIME ZONE,
-                                                arrivel_terminal TEXT,
+                                                to_station_id INT REFERENCES station(id),
+                                                arrival_date TIMESTAMP WITHOUT TIME ZONE,
+                                                arrival_terminal TEXT,
                                                 from_station_id INT REFERENCES station(id),
-                                                days TEXT,
-                                                departuremonthday TEXT)''')
+                                                days TEXT)''')
 
     return pool
