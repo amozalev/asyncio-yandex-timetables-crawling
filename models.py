@@ -51,25 +51,18 @@ thread = sa.Table('thread', metadata,
                   sa.Column('days', sa.Text))
 
 
-async def create_all():
-    async with create_engine(user=config.DB_USER,
-                             database=config.DB_NAME,
-                             host=config.DB_HOST,
-                             password=config.DB_PASS) as engine:
-        async with engine.acquire() as conn:
-            await conn.execute('DROP TABLE IF EXISTS station_type CASCADE')
-            await conn.execute('DROP TABLE IF EXISTS transport_type CASCADE')
-            await conn.execute('DROP TABLE IF EXISTS station CASCADE')
-            await conn.execute('DROP TABLE IF EXISTS carrier CASCADE')
-            await conn.execute('DROP TABLE IF EXISTS vehicle CASCADE')
-            await conn.execute('DROP TABLE IF EXISTS transport_thread CASCADE')
-            await conn.execute('DROP TABLE IF EXISTS thread CASCADE')
+async def create_all(conn):
+    await conn.execute('DROP TABLE IF EXISTS station_type CASCADE')
+    await conn.execute('DROP TABLE IF EXISTS transport_type CASCADE')
+    await conn.execute('DROP TABLE IF EXISTS station CASCADE')
+    await conn.execute('DROP TABLE IF EXISTS carrier CASCADE')
+    await conn.execute('DROP TABLE IF EXISTS vehicle CASCADE')
+    await conn.execute('DROP TABLE IF EXISTS transport_thread CASCADE')
+    await conn.execute('DROP TABLE IF EXISTS thread CASCADE')
 
-            await conn.execute(CreateTable(station_type))
-            await conn.execute(CreateTable(transport_type))
-            await conn.execute(CreateTable(station))
-            await conn.execute(CreateTable(carrier))
-            await conn.execute(CreateTable(vehicle))
-            await conn.execute(CreateTable(transport_thread))
-
-    return engine
+    await conn.execute(CreateTable(station_type))
+    await conn.execute(CreateTable(transport_type))
+    await conn.execute(CreateTable(station))
+    await conn.execute(CreateTable(carrier))
+    await conn.execute(CreateTable(vehicle))
+    await conn.execute(CreateTable(transport_thread))

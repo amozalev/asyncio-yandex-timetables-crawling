@@ -33,16 +33,22 @@ def get_dates_range(date_start: str, date_end: str) -> list:
     return dates
 
 
-async def get_id(conn, model: str, param_name: str, param_value: str):
-    async with conn.cursor() as cur:
-        await cur.execute(SQL("SELECT id FROM {} WHERE {}=%s").format(Identifier(model), Identifier(param_name)),
-                          (param_value,))
-        # await cur.execute(sa.select([transport_type.c.id]).select_from(transport_type).where(transport_type.c.title == title))
-        result = await cur.fetchone()
-        id = None
-        if result:
-            id = result[0]
-    return id
+# async def get_id(conn, model: str, param_name: str, param_value: str):
+#         # await cur.execute(SQL("SELECT id FROM {} WHERE {}=%s").format(Identifier(model), Identifier(param_name)),
+#         #                   (param_value,))
+#         await conn.execute(sa.select([transport_type.c.id]).select_from(transport_type).where(transport_type.c.title == title))
+#         result = await conn.fetchone()
+#         id = None
+#         if result:
+#             id = result[0]
+#     return id
+
+
+async def get_station_id(conn, title):
+    res = await conn.execute(
+        sa.select([station.c.id]).select_from(station).where(station.c.title == title))
+    for i in res:
+        print(i)
 
 
 async def insert_station_type(conn, title):
@@ -113,72 +119,71 @@ async def insert_thread(conn, departure_date, departure_terminal, to_station_id,
             print('psycopg2.Error:', e)
 
 
-async def parse_data(pool, json_response: Dict):
+async def parse_data(conn, json_response: Dict):
     station_type = json_response['station']['station_type']
     transport_type = json_response['station']['transport_type']
     station_code = json_response['station']['code']
     station_title = json_response['station']['title']
 
-    async with pool.acquire() as conn:
-        # ----------------------- Station ----------------------------------------------------------------
-        transport_type_id = None
-        station_id = await get_id(conn, 'station', 'title', station_code)
-        if not station_id:
-            station_type_id = await get_id(conn, 'station_type', 'title', station_type)
-            if not station_type_id:
-                await insert_station_type(conn, station_type)
-                station_type_id = await get_id(conn, 'station_type', 'title', station_type)
-            transport_type_id = await get_id(conn, 'transport_type', 'title', transport_type)
-            if not transport_type_id:
-                await insert_transport_type(conn, transport_type)
-                transport_type_id = await get_id(conn, 'transport_type', 'title', transport_type)
-            await insert_station(conn, station_code, station_title, station_type_id, transport_type_id)
+    # ----------------------- Station ----------------------------------------------------------------
+    transport_type_id = None
+    station_id = await get_station_id(conn, station_code)
+    # if not station_id:
+    #     station_type_id = await get_id(conn, 'station_type', 'title', station_type)
+    #     if not station_type_id:
+    #         await insert_station_type(conn, station_type)
+    #         station_type_id = await get_id(conn, 'station_type', 'title', station_type)
+    #     transport_type_id = await get_id(conn, 'transport_type', 'title', transport_type)
+    #     if not transport_type_id:
+    #         await insert_transport_type(conn, transport_type)
+    #         transport_type_id = await get_id(conn, 'transport_type', 'title', transport_type)
+    #     await insert_station(conn, station_code, station_title, station_type_id, transport_type_id)
+    #
+    # carrier_code = ''
+    # iata = ''
+    # for i in json_response['schedule']:
+    #
+    #     # ----------------------- Carrier ----------------------------------------------------------------
+    #     if 'code' in i['thread']['carrier']:
+    #         carrier_code = i['thread']['carrier']['code']
+    #     if 'codes' in i['thread']['carrier']:
+    #         if 'iata' in i['thread']['carrier']['codes']:
+    #             iata = i['thread']['carrier']['codes']['iata']
+    #     carrier_title = i['thread']['carrier']['title']
+    #     carrier_id = await get_id(conn, 'carrier', 'title', carrier_title)
+    #     if not carrier_id:
+    #         await insert_carrier(conn, carrier_code, iata, carrier_title)
+    #
+    #     # ----------------------- Vehicle ----------------------------------------------------------------
+    #     vehicle_title = 'Поезд'
+    #     if 'vehicle' in i['thread']:
+    #         if i['thread']['vehicle'] is not None:
+    #             vehicle_title = i['thread']['vehicle']
+    #     vehicle_id = await get_id(conn, 'vehicle', 'title', vehicle_title)
+    #     if not vehicle_id and vehicle_title:
+    #         await insert_vehicle(conn, vehicle_title)
+    #         vehicle_id = await get_id(conn, 'vehicle', 'title', vehicle_title)
+    #
+    #     # ----------------------- Transport_thread --------------------------------------------------------
+    #     thread_number = i['thread']['number']
+    #     thread_title = i['thread']['title']
+    #     uid = i['thread']['uid']
+    #     carrier_id = await get_id(conn, 'carrier', 'title', carrier_title)
+    #     await insert_transport_thread(conn, thread_number, thread_title, uid, carrier_id, transport_type_id,
+    #                                   vehicle_id)
+    #
+    #     # ----------------------- Thread --------------------------------------------------------
+    #     departure_date = i['departure']
+    #     departure_terminal = i['terminal']
+    #     arrival_date = i['arrival']
+    #     arrival_terminal = i['terminal']
+    #     days = i['days']
+    #     await insert_thread(conn, departure_date, departure_terminal, station_id, arrival_date,
+    #                         arrival_terminal,
+    #                         station_id, days)
 
-        carrier_code = ''
-        iata = ''
-        for i in json_response['schedule']:
 
-            # ----------------------- Carrier ----------------------------------------------------------------
-            if 'code' in i['thread']['carrier']:
-                carrier_code = i['thread']['carrier']['code']
-            if 'codes' in i['thread']['carrier']:
-                if 'iata' in i['thread']['carrier']['codes']:
-                    iata = i['thread']['carrier']['codes']['iata']
-            carrier_title = i['thread']['carrier']['title']
-            carrier_id = await get_id(conn, 'carrier', 'title', carrier_title)
-            if not carrier_id:
-                await insert_carrier(conn, carrier_code, iata, carrier_title)
-
-            # ----------------------- Vehicle ----------------------------------------------------------------
-            vehicle_title = 'Поезд'
-            if 'vehicle' in i['thread']:
-                if i['thread']['vehicle'] is not None:
-                    vehicle_title = i['thread']['vehicle']
-            vehicle_id = await get_id(conn, 'vehicle', 'title', vehicle_title)
-            if not vehicle_id and vehicle_title:
-                await insert_vehicle(conn, vehicle_title)
-                vehicle_id = await get_id(conn, 'vehicle', 'title', vehicle_title)
-
-            # ----------------------- Transport_thread --------------------------------------------------------
-            thread_number = i['thread']['number']
-            thread_title = i['thread']['title']
-            uid = i['thread']['uid']
-            carrier_id = await get_id(conn, 'carrier', 'title', carrier_title)
-            await insert_transport_thread(conn, thread_number, thread_title, uid, carrier_id, transport_type_id,
-                                          vehicle_id)
-
-            # ----------------------- Thread --------------------------------------------------------
-            departure_date = i['departure']
-            departure_terminal = i['terminal']
-            arrival_date = i['arrival']
-            arrival_terminal = i['terminal']
-            days = i['days']
-            await insert_thread(conn, departure_date, departure_terminal, station_id, arrival_date,
-                                arrival_terminal,
-                                station_id, days)
-
-
-async def fetch(session, base_url, params_list, pool, page=1):
+async def fetch(session, base_url, params_list, conn, page=1):
     params_copy = params_list.copy()
     params_copy.update(page=page)
     async with session.get(base_url, params=params_copy) as response:
@@ -186,11 +191,11 @@ async def fetch(session, base_url, params_list, pool, page=1):
         if 'error' in json_response:
             print(json_response['error']['text'], json_response['error']['request'])
 
-        await parse_data(pool, json_response)
+        await parse_data(conn, json_response)
         return json_response
 
 
-async def start_crawling(session, base_url, params_list, pool):
+async def start_crawling(session, base_url, params_list, conn):
     '''Just the example of asyncio.wait and asyncio.Task difference.
     ----------------------------------------------------------------
     done, pending = await asyncio.wait([loop.create_task(fetch_first_page(session, loop, base_url, i)) for i in params_list],
@@ -203,13 +208,13 @@ async def start_crawling(session, base_url, params_list, pool):
         print('--', data['station']['title'], data['event'], 'page ', data['pagination']['page'])
     '''
 
-    json_response = await fetch(session, base_url, params_list, pool)
+    json_response = await fetch(session, base_url, params_list, conn)
 
     try:
         if json_response["pagination"]["has_next"]:
             page_count = json_response["pagination"]["page_count"]
             json_response = await asyncio.gather(
-                *[asyncio.ensure_future(fetch(session, base_url, params_list, pool, page)) for page in
+                *[asyncio.ensure_future(fetch(session, base_url, params_list, conn, page)) for page in
                   range(1, page_count + 1)])
 
     except KeyError:
@@ -237,12 +242,17 @@ async def main():
         verify_ssl=False,
     )
 
-    pool = await create_all()
+    async with create_engine(user=config.DB_USER,
+                             database=config.DB_NAME,
+                             host=config.DB_HOST,
+                             password=config.DB_PASS) as engine:
+        async with engine.acquire() as conn:
+            await create_all(conn)
 
-    async with aiohttp.ClientSession(connector=connector) as session:
-        await asyncio.gather(
-            *[asyncio.ensure_future(start_crawling(session, config.BASE_URL, i, pool)) for i in
-              params_list])
+            async with aiohttp.ClientSession(connector=connector) as session:
+                await asyncio.gather(
+                    *[asyncio.ensure_future(start_crawling(session, config.BASE_URL, i, conn)) for i in
+                      params_list])
 
 
 if __name__ == '__main__':
