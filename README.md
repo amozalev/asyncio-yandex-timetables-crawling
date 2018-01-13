@@ -2,7 +2,10 @@
 
 This is the example of asyncio, aiohttp and aiopg usage for Yandex Schedules crawling and parsing. Aim is to search detailed information about all routes of arbitrary stations for some dates range.
 
-The program is written in accordance to Yandex Schedules API v1.0 (API documentation: https://tech.yandex.ru/rasp/doc/concepts/about-docpage). 
+The application is written in accordance to Yandex Schedules API v1.0 (API documentation: https://tech.yandex.ru/rasp/doc/concepts/about-docpage).
+
+**Requirements**
+The application requires Python 3.6+. All dependencies are presented in the requirements.txt.
 
 **Usage**
 * Yandex Schedules API key should be received.
