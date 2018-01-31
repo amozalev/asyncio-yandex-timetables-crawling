@@ -1,6 +1,6 @@
 # asyncio_yandex_timetables_crawling
 
-This is the example of asyncio, aiohttp and aiopg usage for Yandex Schedule crawling and parsing. Aim is to search detailed information about all routes departing from or arriving to certain stations for some dates range.
+This is the example of asyncio, aiohttp and aiopg usage for Yandex Schedule crawling and parsing. Aim is to search detailed information about all routes departing from or arriving to arbitrary stations for some dates range.
 ## Requirements
 The application requires Python 3.6+ and requirements.txt includes all other required packages.
 ## Yandex Schedule API
