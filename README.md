@@ -30,8 +30,10 @@ Searching parameters should be placed in config.py:
 * STATIONS dictionary consists of {'convenient station description': 'yandex_station_code'}, where **yandex_station_code** should be finded this way:
     * For example we want to analyze Pulkovo airport in St. Petersburg. We paste "Санкт-Петербург" and for instance "Москва'
     ![](/Screenshot_1.jpg?raw=true)
+     
     * Now we are on the page of the rout between Pulkovo and Moscow Sheremetievo airport, so click on the "Pulkovo"
     ![](Screenshot_2.jpg?raw=true)
+     
     * And here you can see 9600366 in the URL, thus Yandex station code is 's9600366'.
     ![](Screenshot_3.jpg?raw=true)
     * STATIONS can be {'St. Petersburg, Pulkovo': 's9600366'}.
